@@ -1,50 +1,32 @@
 pacman::p_load(tidyverse, polite, httr, rvest)
 
-flist <-
-  read_lines("eesi.html.files.list.txt") %>% str_replace("./", "")
-flist
-dlist <-
-  read_lines("eesi.html.dirs.list.txt") %>% str_replace("./", "")
-dlist
+system(
+  "wget \
+       --no-verbose \
+       --recursive \
+       --spider \
+       --force-html \
+       --level=10 -\
+       -no-directories \
+       --reject=jpg,jpeg,png,gif,pdf,js,css \
+       www.eesi.psu.edu 2>&1 | sort | uniq | grep -oe 'www[^ ]*' \
+       > new.eesi.files.list"
+)
 
-for (i in dlist) {
-  if (dir.exists(i) == F) {
-    dir.create(i)
-  }
-}
+files <- read_lines("new.eesi.files.list")
 
-domain <- "https://www.eesi.psu.edu/"
+files %>%
+  as_tibble() %>%
+  rename(files = value)
 
-rm(front_page)
-front_page <-
-  read_html("https://www.eesi.psu.edu/index.shtml",
-            options = c("RECOVER", "NOERROR"))
-front_page
+front_page_link <- "https://www.eesi.psu.edu/"
+front_page_link
 
-for (i in flist) {
-  paste(domain, i, sep = "") %>%
-    download.file(
-      url = .,
-      destfile = i,
-      method = "curl",
-      extra = "-L"
-    )
-}
+system(paste("w3m -dump ", front_page_link, " > front_page.md"))
 
-for (i in flist) {
-#  rmarkdown::pan
-}
+file.edit("front_page.md")
 
-flist_sort <-
-  bind_cols(filename = flist, order1 = rep(NA_integer_, times = length(flist))) %>%
-  mutate(order1 = case_when(filename == "index.shtml" ~ -1L,
-                            TRUE ~ str_count(filename, "/"))) %>%
-  mutate(order2 = case_when(str_detect(filename, "index.html") ~ 0,
-                            str_detect(filename, "index.shtml") ~ 0,
-                            TRUE ~ 1)) %>%
-  arrange(order1, order2, filename)
-flist_sort
 
-?rmarkdown::pandoc_convert
-rmarkdown::pandoc_convert(flist_sort$filename[1], output = "full_site.docx", verbose = TRUE)
-file.edit("full_site.md")
+
+removable_header <- read_lines("front_page.md", n_max = 82)
+removable_tailer <- read_lines("front_page.md", skip = 140)
